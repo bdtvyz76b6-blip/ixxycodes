@@ -10,94 +10,127 @@ def connect():
 
 
 
-def init_db():
+# =====================
+# ДОБАВЛЯЕМ ТАБЛИЦЫ IXYY CODES
+# =====================
 
-    db = connect()
-    cur = db.cursor()
+def init_codes():
+
+    conn = connect()
+    cur = conn.cursor()
 
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS codes(
+
         code TEXT PRIMARY KEY,
+
         reward INTEGER,
+
         used INTEGER DEFAULT 0,
+
         user_id INTEGER,
+
         created_at TEXT
+
     )
     """)
 
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS daily_rewards(
+
         user_id INTEGER PRIMARY KEY,
+
         last_reward TEXT
+
     )
     """)
 
 
-    db.commit()
-    db.close()
+    conn.commit()
+    conn.close()
 
 
 
 # =====================
-# КОДЫ
+# СОЗДАНИЕ КОДА
 # =====================
-
 
 def save_code(code, reward, user_id):
 
-    db = connect()
-    cur = db.cursor()
+    conn = connect()
+    cur = conn.cursor()
+
 
     cur.execute("""
     INSERT INTO codes
-    VALUES(?,?,?,?,?)
+    (
+        code,
+        reward,
+        user_id,
+        created_at
+    )
+
+    VALUES (?,?,?,?)
+
     """,
     (
         code,
         reward,
-        0,
         user_id,
-        datetime.now().isoformat()
+        datetime.now().strftime("%Y-%m-%d")
     ))
 
-    db.commit()
-    db.close()
+
+    conn.commit()
+    conn.close()
 
 
+
+# =====================
+# МОИ КОДЫ
+# =====================
 
 def get_codes(user_id):
 
-    db = connect()
-    cur = db.cursor()
+    conn = connect()
+    cur = conn.cursor()
+
 
     cur.execute("""
     SELECT code, reward, used
     FROM codes
     WHERE user_id=?
+
     """,
     (user_id,))
 
 
-    data = cur.fetchall()
-
-    db.close()
-
-    return data
+    result = cur.fetchall()
 
 
+    conn.close()
+
+    return result
+
+
+
+# =====================
+# АКТИВАЦИЯ КОДА
+# =====================
 
 def activate_code(code):
 
-    db = connect()
-    cur = db.cursor()
+    conn = connect()
+    cur = conn.cursor()
 
 
     cur.execute("""
     SELECT reward, used
     FROM codes
     WHERE code=?
+
     """,
     (code,))
 
@@ -106,7 +139,8 @@ def activate_code(code):
 
 
     if not result:
-        db.close()
+
+        conn.close()
         return None
 
 
@@ -114,20 +148,25 @@ def activate_code(code):
 
 
     if used:
-        db.close()
+
+        conn.close()
         return "used"
+
 
 
     cur.execute("""
     UPDATE codes
+
     SET used=1
+
     WHERE code=?
+
     """,
     (code,))
 
 
-    db.commit()
-    db.close()
+    conn.commit()
+    conn.close()
 
 
     return reward
@@ -135,20 +174,22 @@ def activate_code(code):
 
 
 # =====================
-# VPN ПРОДЛЕНИЕ
+# ДОБАВЛЕНИЕ ДНЕЙ VPN
 # =====================
-
 
 def add_days(user_id, days):
 
-    db = connect()
-    cur = db.cursor()
+    conn = connect()
+    cur = conn.cursor()
 
 
     cur.execute("""
     SELECT subscription_until
+
     FROM users
+
     WHERE user_id=?
+
     """,
     (user_id,))
 
@@ -156,88 +197,118 @@ def add_days(user_id, days):
     result = cur.fetchone()
 
 
-    now=datetime.now()
+    now = datetime.now()
 
 
     if result and result[0]:
 
         try:
-            date=datetime.fromisoformat(result[0])
+
+            old = datetime.strptime(
+                result[0],
+                "%Y-%m-%d"
+            )
 
         except:
-            date=now
+
+            old = now
 
     else:
-        date=now
+
+        old = now
 
 
 
-    if date < now:
-        date=now
+    if old < now:
+
+        old = now
 
 
 
-    new=date+timedelta(days=days)
+    new_date = (
+        old +
+        timedelta(days=days)
+    ).strftime(
+        "%Y-%m-%d"
+    )
+
 
 
     cur.execute("""
     UPDATE users
-    SET subscription_until=?
+
+    SET
+
+    subscription='vip',
+
+    subscription_until=?
+
     WHERE user_id=?
+
     """,
     (
-        new.isoformat(),
+        new_date,
         user_id
     ))
 
 
-    db.commit()
-    db.close()
+    conn.commit()
+    conn.close()
 
 
 
 # =====================
-# УДАЧА
+# УДАЧА ДНЯ
 # =====================
-
 
 def can_daily(user_id):
 
-    db=connect()
-    cur=db.cursor()
+    conn = connect()
+    cur = conn.cursor()
 
 
-    cur.execute(
-    """
+    cur.execute("""
     SELECT last_reward
+
     FROM daily_rewards
+
     WHERE user_id=?
+
     """,
     (user_id,))
 
 
-    result=cur.fetchone()
+    result = cur.fetchone()
 
-    db.close()
+
+    conn.close()
+
+
+    today=datetime.now().strftime(
+        "%Y-%m-%d"
+    )
 
 
     if not result:
+
         return True
 
 
-    return result[0] != datetime.now().strftime("%Y-%m-%d")
+    return result[0] != today
 
 
 
 def save_daily(user_id):
 
-    db=connect()
-    cur=db.cursor()
+    conn=connect()
+    cur=conn.cursor()
 
 
     cur.execute("""
     INSERT OR REPLACE INTO daily_rewards
-    VALUES(?,?)
+
+    VALUES (?,?)
+
     """,
     (
         user_id,
@@ -245,5 +316,5 @@ def save_daily(user_id):
     ))
 
 
-    db.commit()
-    db.close()
+    conn.commit()
+    conn.close()
