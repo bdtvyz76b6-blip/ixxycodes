@@ -436,3 +436,36 @@ def save_daily(user_id):
 
     conn.commit()
     conn.close()
+    
+    
+    
+    # =====================
+# СОВМЕСТИМОСТЬ СО СТАРЫМ REWARDS.PY
+# =====================
+
+def save_code(code, reward, user_id):
+
+    conn = connect()
+    cur = conn.cursor()
+
+    cur.execute("""
+    INSERT INTO codes
+    (
+        code,
+        reward,
+        user_id,
+        created_at
+    )
+
+    VALUES (?,?,?,?)
+
+    """,
+    (
+        code,
+        reward,
+        user_id,
+        datetime.now().strftime("%Y-%m-%d")
+    ))
+
+    conn.commit()
+    conn.close()
