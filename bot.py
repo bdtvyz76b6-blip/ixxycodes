@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher
 
 from config import BOT_TOKEN
 
-from database import init_db
+from database import init_codes
 
 from handlers import (
     start,
