@@ -16,7 +16,7 @@ from handlers import (
 
 async def main():
 
-    init_db()
+    init_codes()
 
     bot = Bot(
         BOT_TOKEN
