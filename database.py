@@ -469,3 +469,45 @@ def save_code(code, reward, user_id):
 
     conn.commit()
     conn.close()
+    
+    
+    
+    # =====================
+# СОВМЕСТИМОСТЬ LUCK.PY
+# =====================
+
+def can_daily(user_id):
+
+    conn = connect()
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT last_reward
+
+    FROM daily_rewards
+
+    WHERE user_id=?
+
+    """,
+    (user_id,))
+
+
+    result = cur.fetchone()
+
+    conn.close()
+
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+
+    # первый раз можно
+    if not result:
+        return True
+
+
+    # если сегодня уже забрал — нельзя
+    if result[0] == today:
+        return False
+
+
+    return True
