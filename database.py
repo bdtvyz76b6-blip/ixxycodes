@@ -11,14 +11,16 @@ def connect():
 
 
 # =====================
-# ДОБАВЛЯЕМ ТАБЛИЦЫ IXYY CODES
+# СОЗДАНИЕ ДОП. ТАБЛИЦ
 # =====================
 
-def init_codes():
+def init_db():
 
     conn = connect()
     cur = conn.cursor()
 
+
+    # коды ixxy
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS codes(
@@ -37,6 +39,8 @@ def init_codes():
     """)
 
 
+    # удача дня
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS daily_rewards(
 
@@ -54,10 +58,44 @@ def init_codes():
 
 
 # =====================
-# СОЗДАНИЕ КОДА
+# USERS
 # =====================
 
-def save_code(code, reward, user_id):
+def add_user(user_id):
+
+    conn = connect()
+    cur = conn.cursor()
+
+
+    cur.execute("""
+    INSERT OR IGNORE INTO users
+    (
+        user_id
+    )
+
+    VALUES (?)
+
+    """,
+    (
+        user_id,
+    ))
+
+
+    conn.commit()
+    conn.close()
+
+
+
+# =====================
+# КОДЫ
+# =====================
+
+
+def save_code(
+        code,
+        reward,
+        user_id
+):
 
     conn = connect()
     cur = conn.cursor()
@@ -88,10 +126,6 @@ def save_code(code, reward, user_id):
 
 
 
-# =====================
-# МОИ КОДЫ
-# =====================
-
 def get_codes(user_id):
 
     conn = connect()
@@ -99,26 +133,25 @@ def get_codes(user_id):
 
 
     cur.execute("""
-    SELECT code, reward, used
+    SELECT code,reward,used
+
     FROM codes
+
     WHERE user_id=?
 
     """,
-    (user_id,))
+    (
+        user_id,
+    ))
 
 
     result = cur.fetchall()
-
 
     conn.close()
 
     return result
 
 
-
-# =====================
-# АКТИВАЦИЯ КОДА
-# =====================
 
 def activate_code(code):
 
@@ -127,12 +160,16 @@ def activate_code(code):
 
 
     cur.execute("""
-    SELECT reward, used
+    SELECT reward,used
+
     FROM codes
+
     WHERE code=?
 
     """,
-    (code,))
+    (
+        code,
+    ))
 
 
     result = cur.fetchone()
@@ -144,7 +181,8 @@ def activate_code(code):
         return None
 
 
-    reward, used = result
+
+    reward,used=result
 
 
     if used:
@@ -162,7 +200,9 @@ def activate_code(code):
     WHERE code=?
 
     """,
-    (code,))
+    (
+        code,
+    ))
 
 
     conn.commit()
@@ -174,10 +214,17 @@ def activate_code(code):
 
 
 # =====================
-# ДОБАВЛЕНИЕ ДНЕЙ VPN
+# ПРОДЛЕНИЕ VPN
 # =====================
 
-def add_days(user_id, days):
+
+def add_days(
+        user_id,
+        days
+):
+
+    add_user(user_id)
+
 
     conn = connect()
     cur = conn.cursor()
@@ -191,42 +238,44 @@ def add_days(user_id, days):
     WHERE user_id=?
 
     """,
-    (user_id,))
+    (
+        user_id,
+    ))
 
 
     result = cur.fetchone()
 
 
-    now = datetime.now()
+    now=datetime.now()
 
 
     if result and result[0]:
 
         try:
 
-            old = datetime.strptime(
+            old=datetime.strptime(
                 result[0],
                 "%Y-%m-%d"
             )
 
         except:
 
-            old = now
+            old=now
 
     else:
 
-        old = now
+        old=now
 
 
 
     if old < now:
 
-        old = now
+        old=now
 
 
 
-    new_date = (
-        old +
+    new_date=(
+        old+
         timedelta(days=days)
     ).strftime(
         "%Y-%m-%d"
@@ -256,15 +305,19 @@ def add_days(user_id, days):
     conn.close()
 
 
+    return new_date
+
+
 
 # =====================
 # УДАЧА ДНЯ
 # =====================
 
+
 def can_daily(user_id):
 
-    conn = connect()
-    cur = conn.cursor()
+    conn=connect()
+    cur=conn.cursor()
 
 
     cur.execute("""
@@ -275,11 +328,12 @@ def can_daily(user_id):
     WHERE user_id=?
 
     """,
-    (user_id,))
+    (
+        user_id,
+    ))
 
 
-    result = cur.fetchone()
-
+    result=cur.fetchone()
 
     conn.close()
 
