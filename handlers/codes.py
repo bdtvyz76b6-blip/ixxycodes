@@ -1,7 +1,9 @@
 from aiogram import Router
 from aiogram.types import Message
 
-from database import activate_code, add_days
+from database import activate_code
+
+from vpn_api import give_days
 
 
 router = Router()
@@ -49,10 +51,21 @@ async def activate(message: Message):
 
 
 
-    add_days(
+    # отправляем дни в VPN-бот
+    response = give_days(
         message.from_user.id,
         result
     )
+
+
+    if not response or response.get("status") != "ok":
+
+        await message.answer(
+            "❌ Не удалось начислить дни.\nПопробуйте позже."
+        )
+
+        return
+
 
 
     await message.answer(
@@ -63,6 +76,9 @@ f"""
 
 🎁 Начислено:
 +{result} дней
+
+📅 Новая дата:
+{response.get("date")}
 
 Спасибо, что используете ixxy ❤️
 """
