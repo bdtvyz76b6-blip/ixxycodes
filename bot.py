@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher
 
 from config import BOT_TOKEN
 
-from database import init_codes
+from database import init_db
 
 from handlers import (
     start,
@@ -16,7 +16,7 @@ from handlers import (
 
 async def main():
 
-    init_codes()
+    init_db()
 
     bot = Bot(
         BOT_TOKEN
