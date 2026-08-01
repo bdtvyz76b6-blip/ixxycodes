@@ -1,8 +1,11 @@
 import sqlite3
+import random
+import string
+
 from datetime import datetime, timedelta
 
 
-DB = "/app/users.db"
+DB = "users.db"
 
 
 def connect():
@@ -11,7 +14,7 @@ def connect():
 
 
 # =====================
-# СОЗДАНИЕ ДОП. ТАБЛИЦ
+# СОЗДАНИЕ БАЗЫ
 # =====================
 
 def init_db():
@@ -20,7 +23,41 @@ def init_db():
     cur = conn.cursor()
 
 
-    # коды ixxy
+    # USERS (ixxy VPN)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users(
+
+        user_id INTEGER PRIMARY KEY,
+
+        username TEXT,
+
+        first_name TEXT,
+
+        subscription TEXT DEFAULT 'none',
+
+        subscription_until TEXT DEFAULT '',
+
+        subscription_link TEXT DEFAULT '',
+
+        uuid TEXT DEFAULT '',
+
+        trial_used INTEGER DEFAULT 0,
+
+        pending_days INTEGER DEFAULT 0,
+
+        notify INTEGER DEFAULT 1,
+
+        accepted_terms INTEGER DEFAULT 0,
+
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+
+    )
+    """)
+
+
+
+    # КОДЫ
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS codes(
@@ -39,7 +76,8 @@ def init_db():
     """)
 
 
-    # удача дня
+
+    # УДАЧА
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS daily_rewards(
@@ -52,8 +90,11 @@ def init_db():
     """)
 
 
+
     conn.commit()
     conn.close()
+
+
 
 
 
@@ -68,17 +109,12 @@ def add_user(user_id):
 
 
     cur.execute("""
-    INSERT OR IGNORE INTO users
-    (
-        user_id
-    )
+    INSERT OR IGNORE INTO users(user_id)
 
-    VALUES (?)
+    VALUES(?)
 
     """,
-    (
-        user_id,
-    ))
+    (user_id,))
 
 
     conn.commit()
@@ -86,19 +122,33 @@ def add_user(user_id):
 
 
 
-# =====================
-# КОДЫ
-# =====================
 
 
-def save_code(
-        code,
-        reward,
-        user_id
-):
+# =====================
+# ГЕНЕРАЦИЯ КОДА
+# =====================
+
+def generate_code():
+
+    chars = string.ascii_uppercase + string.digits
+
+
+    return "IXXY-" + "".join(
+        random.choice(chars)
+        for _ in range(8)
+    )
+
+
+
+
+
+def create_code(user_id, days):
 
     conn = connect()
     cur = conn.cursor()
+
+
+    code = generate_code()
 
 
     cur.execute("""
@@ -110,12 +160,12 @@ def save_code(
         created_at
     )
 
-    VALUES (?,?,?,?)
+    VALUES(?,?,?,?)
 
     """,
     (
         code,
-        reward,
+        days,
         user_id,
         datetime.now().strftime("%Y-%m-%d")
     ))
@@ -125,6 +175,15 @@ def save_code(
     conn.close()
 
 
+    return code
+
+
+
+
+
+# =====================
+# МОИ КОДЫ
+# =====================
 
 def get_codes(user_id):
 
@@ -140,18 +199,24 @@ def get_codes(user_id):
     WHERE user_id=?
 
     """,
-    (
-        user_id,
-    ))
+    (user_id,))
 
 
-    result = cur.fetchall()
+    data = cur.fetchall()
+
 
     conn.close()
 
-    return result
+
+    return data
 
 
+
+
+
+# =====================
+# АКТИВАЦИЯ КОДА
+# =====================
 
 def activate_code(code):
 
@@ -167,9 +232,7 @@ def activate_code(code):
     WHERE code=?
 
     """,
-    (
-        code,
-    ))
+    (code,))
 
 
     result = cur.fetchone()
@@ -182,10 +245,11 @@ def activate_code(code):
 
 
 
-    reward,used=result
+    reward, used = result
 
 
-    if used:
+
+    if used == 1:
 
         conn.close()
         return "used"
@@ -200,9 +264,7 @@ def activate_code(code):
     WHERE code=?
 
     """,
-    (
-        code,
-    ))
+    (code,))
 
 
     conn.commit()
@@ -213,21 +275,20 @@ def activate_code(code):
 
 
 
-# =====================
-# ПРОДЛЕНИЕ VPN
-# =====================
 
 
-def add_days(
-        user_id,
-        days
-):
+# =====================
+# ДОБАВИТЬ ДНИ VPN
+# =====================
+
+def add_days(user_id, days):
 
     add_user(user_id)
 
 
     conn = connect()
     cur = conn.cursor()
+
 
 
     cur.execute("""
@@ -238,44 +299,44 @@ def add_days(
     WHERE user_id=?
 
     """,
-    (
-        user_id,
-    ))
+    (user_id,))
 
 
     result = cur.fetchone()
 
 
-    now=datetime.now()
+
+    now = datetime.now()
+
 
 
     if result and result[0]:
 
         try:
 
-            old=datetime.strptime(
+            old = datetime.strptime(
                 result[0],
                 "%Y-%m-%d"
             )
 
         except:
 
-            old=now
+            old = now
 
     else:
 
-        old=now
+        old = now
 
 
 
     if old < now:
 
-        old=now
+        old = now
 
 
 
-    new_date=(
-        old+
+    new_date = (
+        old +
         timedelta(days=days)
     ).strftime(
         "%Y-%m-%d"
@@ -301,6 +362,7 @@ def add_days(
     ))
 
 
+
     conn.commit()
     conn.close()
 
@@ -309,15 +371,16 @@ def add_days(
 
 
 
+
+
 # =====================
 # УДАЧА ДНЯ
 # =====================
 
+def daily_available(user_id):
 
-def can_daily(user_id):
-
-    conn=connect()
-    cur=conn.cursor()
+    conn = connect()
+    cur = conn.cursor()
 
 
     cur.execute("""
@@ -328,17 +391,16 @@ def can_daily(user_id):
     WHERE user_id=?
 
     """,
-    (
-        user_id,
-    ))
+    (user_id,))
 
 
-    result=cur.fetchone()
+    result = cur.fetchone()
+
 
     conn.close()
 
 
-    today=datetime.now().strftime(
+    today = datetime.now().strftime(
         "%Y-%m-%d"
     )
 
@@ -352,16 +414,18 @@ def can_daily(user_id):
 
 
 
+
+
 def save_daily(user_id):
 
-    conn=connect()
-    cur=conn.cursor()
+    conn = connect()
+    cur = conn.cursor()
 
 
     cur.execute("""
     INSERT OR REPLACE INTO daily_rewards
 
-    VALUES (?,?)
+    VALUES(?,?)
 
     """,
     (
