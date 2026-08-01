@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime, timedelta
 
 
-DB = "users.db"
+DB = "/app/users.db"
 
 
 def connect():
