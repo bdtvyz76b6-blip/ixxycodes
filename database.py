@@ -1,7 +1,6 @@
 import sqlite3
 from datetime import datetime, timedelta
-import random
-import string
+
 
 DB = "users.db"
 
@@ -11,65 +10,56 @@ def connect():
 
 
 
-# =====================
-# КОДЫ
-# =====================
-
-def create_codes_table():
+def init_db():
 
     db = connect()
     cur = db.cursor()
+
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS codes(
         code TEXT PRIMARY KEY,
         reward INTEGER,
         used INTEGER DEFAULT 0,
-        user_id INTEGER DEFAULT 0,
+        user_id INTEGER,
         created_at TEXT
     )
     """)
+
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS daily_rewards(
+        user_id INTEGER PRIMARY KEY,
+        last_reward TEXT
+    )
+    """)
+
 
     db.commit()
     db.close()
 
 
 
-def create_code(code, reward):
+# =====================
+# КОДЫ
+# =====================
+
+
+def save_code(code, reward, user_id):
 
     db = connect()
     cur = db.cursor()
 
     cur.execute("""
     INSERT INTO codes
-    VALUES (?,?,?,?,?)
+    VALUES(?,?,?,?,?)
     """,
     (
         code,
         reward,
         0,
-        0,
-        datetime.now().isoformat()
-    ))
-
-    db.commit()
-    db.close()
-
-
-
-def bind_code(code,user_id):
-
-    db = connect()
-    cur = db.cursor()
-
-    cur.execute("""
-    UPDATE codes
-    SET user_id=?
-    WHERE code=?
-    """,
-    (
         user_id,
-        code
+        datetime.now().isoformat()
     ))
 
     db.commit()
@@ -83,11 +73,12 @@ def get_codes(user_id):
     cur = db.cursor()
 
     cur.execute("""
-    SELECT code,used
+    SELECT code, reward, used
     FROM codes
     WHERE user_id=?
     """,
     (user_id,))
+
 
     data = cur.fetchall()
 
@@ -97,14 +88,14 @@ def get_codes(user_id):
 
 
 
-def activate_code(code,user_id):
+def activate_code(code):
 
     db = connect()
     cur = db.cursor()
 
 
     cur.execute("""
-    SELECT reward,used
+    SELECT reward, used
     FROM codes
     WHERE code=?
     """,
@@ -119,7 +110,7 @@ def activate_code(code,user_id):
         return None
 
 
-    reward,used=result
+    reward, used = result
 
 
     if used:
@@ -127,17 +118,12 @@ def activate_code(code,user_id):
         return "used"
 
 
-
     cur.execute("""
     UPDATE codes
-    SET used=1,
-        user_id=?
+    SET used=1
     WHERE code=?
     """,
-    (
-        user_id,
-        code
-    ))
+    (code,))
 
 
     db.commit()
@@ -149,11 +135,11 @@ def activate_code(code,user_id):
 
 
 # =====================
-# VPN ПОДПИСКА
+# VPN ПРОДЛЕНИЕ
 # =====================
 
 
-def add_days(user_id,days):
+def add_days(user_id, days):
 
     db = connect()
     cur = db.cursor()
@@ -167,7 +153,7 @@ def add_days(user_id,days):
     (user_id,))
 
 
-    result=cur.fetchone()
+    result = cur.fetchone()
 
 
     now=datetime.now()
@@ -176,25 +162,22 @@ def add_days(user_id,days):
     if result and result[0]:
 
         try:
-            current=datetime.fromisoformat(
-                result[0]
-            )
+            date=datetime.fromisoformat(result[0])
 
         except:
-            current=now
+            date=now
 
     else:
-        current=now
+        date=now
 
 
 
-    if current < now:
-        current=now
+    if date < now:
+        date=now
 
 
 
-    new_date=current+timedelta(days=days)
-
+    new=date+timedelta(days=days)
 
 
     cur.execute("""
@@ -203,7 +186,7 @@ def add_days(user_id,days):
     WHERE user_id=?
     """,
     (
-        new_date.isoformat(),
+        new.isoformat(),
         user_id
     ))
 
@@ -213,18 +196,54 @@ def add_days(user_id,days):
 
 
 
-def user_exists(user_id):
+# =====================
+# УДАЧА
+# =====================
+
+
+def can_daily(user_id):
 
     db=connect()
     cur=db.cursor()
 
+
     cur.execute(
-        "SELECT user_id FROM users WHERE user_id=?",
-        (user_id,)
-    )
+    """
+    SELECT last_reward
+    FROM daily_rewards
+    WHERE user_id=?
+    """,
+    (user_id,))
+
 
     result=cur.fetchone()
 
     db.close()
 
-    return result is not None
+
+    if not result:
+        return True
+
+
+    return result[0] != datetime.now().strftime("%Y-%m-%d")
+
+
+
+def save_daily(user_id):
+
+    db=connect()
+    cur=db.cursor()
+
+
+    cur.execute("""
+    INSERT OR REPLACE INTO daily_rewards
+    VALUES(?,?)
+    """,
+    (
+        user_id,
+        datetime.now().strftime("%Y-%m-%d")
+    ))
+
+
+    db.commit()
+    db.close()
